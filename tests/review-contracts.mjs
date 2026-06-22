@@ -44,7 +44,7 @@ function read(path) {
 }
 
 function normalizePacket(text) {
-  return text.replace(/- Created at: .+/g, "- Created at: <timestamp>");
+  return text.replace(/\r\n/g, "\n").replace(/- Created at: .+/g, "- Created at: <timestamp>");
 }
 
 {

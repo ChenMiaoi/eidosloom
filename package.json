@@ -1,0 +1,49 @@
+{
+  "name": "eidosloom",
+  "version": "0.1.0",
+  "description": "Install Eidosloom Codex skills for idea-to-paper workflows and configurable GPT web review levels.",
+  "type": "module",
+  "bin": {
+    "eidosloom": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "installers",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "doctor": "node dist/cli.js doctor",
+    "install-skill": "node dist/cli.js install",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "codex",
+    "chatgpt",
+    "skill",
+    "automation",
+    "research",
+    "workflow",
+    "review"
+  ],
+  "author": "ChenMiaoi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChenMiaoi/eidosloom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ChenMiaoi/eidosloom/issues"
+  },
+  "homepage": "https://github.com/ChenMiaoi/eidosloom#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3",
+    "typescript": "^5.8.3"
+  }
+}

@@ -58,22 +58,22 @@ By default, workflow artifacts are written in the target workspace under:
 work/eidosloom/<project-slug>/
 ```
 
-The main skill includes `scripts/scaffold_eidosloom.py`, which can create a round directory, manifest, reusable Markdown files, and a zip package for handoff or ChatGPT review. Use `--scope plan` for planning-only packages. The review skill includes `scripts/build_review_packet.py`, which can create review packets with selected review depth, review mode, and ChatGPT UI mode metadata. It also includes `scripts/validate_review_contract.py` for Humanizer-style caller request/result contracts.
+The main skill includes `scripts/scaffold_eidosloom.py`, which can create a round directory, manifest, reusable Markdown files, and a zip package for handoff or ChatGPT review. Use `--scope plan` for planning-only packages, `--mode resume` to fill missing files from an owned manifest, and `--force` only to refresh unmodified generated files. The review skill includes `scripts/build_review_packet.py`, which can create review packets with selected review depth, review mode, and ChatGPT UI mode metadata. It also includes `scripts/validate_review_contract.py` for Humanizer-style caller request/result contracts.
 
 ## One-Line Install
 
-Prefer versioned installs. The examples below use the `v0.2.0` tag.
+Prefer versioned installs. The examples below use the `v0.2.1` tag.
 
 macOS/Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.0/installers/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.1/installers/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.0/installers/install.ps1 | iex
+irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.1/installers/install.ps1 | iex
 ```
 
 To test a branch or fork, override repo name or ref:
@@ -112,6 +112,7 @@ Useful local commands:
 ```sh
 eidosloom review-levels
 python skills/eidosloom/scripts/scaffold_eidosloom.py --workspace /tmp/eidosloom-plan --project smoke --round 0 --phase plan --scope plan --no-zip
+python skills/eidosloom/scripts/scaffold_eidosloom.py --workspace /tmp/eidosloom-plan --project smoke --round 0 --phase plan --scope plan --mode resume --no-zip
 eidosloom review-packet --target implementation --level deep --review-mode balanced --round 1
 eidosloom review-packet --target paper --level deep --review-mode committee --ui-mode prefer-pro --title "Final paper review"
 eidosloom review-packet --target custom --caller humanizer --level deep --review-mode adversarial --rubric "Preserve facts and reduce AI-like phrasing."

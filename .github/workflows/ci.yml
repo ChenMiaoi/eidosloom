@@ -43,8 +43,52 @@ jobs:
         if: runner.os != 'Windows'
         run: bash -n installers/install.sh
 
+      - name: Shell installer smoke
+        if: runner.os != 'Windows'
+        env:
+          CODEX_HOME: ${{ runner.temp }}/codex home
+          EIDOSLOOM_REF: ${{ github.sha }}
+        run: |
+          ./installers/install.sh
+          node - <<'NODE'
+          const { existsSync, readFileSync } = require("node:fs");
+          const { join } = require("node:path");
+          const manifest = JSON.parse(readFileSync("skills/eidosloom/references/bundle-manifest.json", "utf8"));
+          const codexHome = process.env.CODEX_HOME;
+          const expected = manifest.skills.map((skill) => skill.name).sort();
+          const missing = expected.filter((name) => !existsSync(join(codexHome, "skills", name, "SKILL.md")));
+          if (missing.length) {
+            throw new Error(`Missing installed skills: ${missing.join(", ")}`);
+          }
+          NODE
+          node dist/cli.js doctor
+          node dist/cli.js paths
+
       - name: Check PowerShell installer syntax
         shell: pwsh
         run: |
           $null = [scriptblock]::Create((Get-Content installers/install.ps1 -Raw))
           "PowerShell syntax ok"
+
+      - name: PowerShell installer smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CODEX_HOME: ${{ runner.temp }}\codex home
+          EIDOSLOOM_REF: ${{ github.sha }}
+        run: |
+          .\installers\install.ps1
+          $Manifest = Get-Content "skills/eidosloom/references/bundle-manifest.json" -Raw | ConvertFrom-Json
+          $Expected = @($Manifest.skills | ForEach-Object { $_.name } | Sort-Object)
+          $Missing = @()
+          foreach ($Name in $Expected) {
+            $SkillPath = Join-Path (Join-Path $env:CODEX_HOME "skills") (Join-Path $Name "SKILL.md")
+            if (-not (Test-Path $SkillPath)) {
+              $Missing += $Name
+            }
+          }
+          if ($Missing.Count -gt 0) {
+            throw "Missing installed skills: $($Missing -join ', ')"
+          }
+          node dist/cli.js doctor
+          node dist/cli.js paths

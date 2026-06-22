@@ -47,9 +47,9 @@ work/eidosloom/<project-slug>/
 
 Modes:
 
-- `create`: default. Create a new `round-00` planning package. Refuse to overwrite an existing `round-00` unless the user explicitly asks for force.
-- `resume`: read existing `round-00` artifacts and fill only missing planning material. Do not overwrite non-empty files.
-- `force`: only when explicitly requested by the user. Overwrite generated planning skeletons after stating which files are affected.
+- `create`: default. Create a new `round-00` planning package. Refuse to overwrite an existing owned `round-00` unless the user explicitly asks for force.
+- `resume`: read an existing owned `round-00` manifest and fill only missing planning material. Do not overwrite non-empty files.
+- `force`: only when explicitly requested by the user. Refresh unmodified generated planning skeletons from an owned manifest; do not overwrite user-modified files or unrelated files.
 
 Round `00` is initial planning only. Do not hard-code later planning revisions to `round-00`; later revisions belong to `$eidosloom` review-loop state.
 
@@ -65,6 +65,7 @@ Round `00` is initial planning only. Do not hard-code later planning revisions t
      ```bash
      ../eidosloom/scripts/scaffold_eidosloom.py --workspace <workspace> --project <project> --round 0 --phase plan --scope plan
      ```
+   - Add `--mode resume` when lifecycle mode is `resume`.
    - Add `--force` only when lifecycle mode is `force`.
    - Keep paper artifacts out of the plan-only scope.
 

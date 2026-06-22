@@ -13,7 +13,7 @@
 
 - Owns the initial planning entrypoint.
 - Creates or resumes `round-00` plan packages.
-- Defines `create`, `resume`, and `force` lifecycle semantics.
+- Defines `create`, `resume`, and `force` lifecycle semantics backed by owned manifests and managed-file hashes.
 - Does not implement code, review implementation, or draft papers.
 
 `eidosloom-review`:

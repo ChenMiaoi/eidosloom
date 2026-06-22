@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_OWNER="${EIDOSLOOM_OWNER:-ChenMiaoi}"
 REPO_NAME="${EIDOSLOOM_REPO:-eidosloom}"
-REF="${EIDOSLOOM_REF:-v0.2.0}"
+REF="${EIDOSLOOM_REF:-v0.2.1}"
 CODEX_HOME="${CODEX_HOME:-"$HOME/.codex"}"
 TMP_DIR="$(mktemp -d)"
 
@@ -30,6 +30,58 @@ download() {
   exit 1
 }
 
+parse_manifest() {
+  local manifest="$1"
+  local python_cmd=""
+
+  if command -v python3 >/dev/null 2>&1; then
+    python_cmd="python3"
+  elif command -v python >/dev/null 2>&1; then
+    python_cmd="python"
+  else
+    echo "Missing python3 or python. A JSON parser is required to read the Eidosloom bundle manifest." >&2
+    exit 1
+  fi
+
+  "$python_cmd" - "$manifest" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+try:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+except Exception as exc:
+    raise SystemExit(f"Could not parse Eidosloom bundle manifest: {exc}")
+
+if not isinstance(manifest, dict):
+    raise SystemExit("Bundle manifest must be a JSON object.")
+if manifest.get("schema") != "eidosloom-bundle-manifest.v1":
+    raise SystemExit("Unsupported Eidosloom bundle manifest schema.")
+skills = manifest.get("skills")
+if not isinstance(skills, list) or not skills:
+    raise SystemExit("Bundle manifest did not declare any skills.")
+
+names = []
+for item in skills:
+    if not isinstance(item, dict):
+        raise SystemExit("Bundle manifest skill entries must be objects.")
+    name = item.get("name")
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
+        raise SystemExit(f"Invalid skill name in bundle manifest: {name!r}")
+    names.append(name)
+
+if len(names) != len(set(names)):
+    raise SystemExit("Bundle manifest declares duplicate skills.")
+runtime = manifest.get("runtime_skill")
+if runtime not in names:
+    raise SystemExit("Bundle manifest runtime_skill must name one declared skill.")
+
+print("\n".join(names))
+PY
+}
+
 ARCHIVE="$TMP_DIR/repo.tar.gz"
 URL="https://codeload.github.com/$REPO_OWNER/$REPO_NAME/tar.gz/$REF"
 
@@ -48,7 +100,7 @@ fi
 SKILL_NAMES=()
 while IFS= read -r SKILL_NAME; do
   SKILL_NAMES+=("$SKILL_NAME")
-done < <(sed -n 's/^[[:space:]]*"name":[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST")
+done < <(parse_manifest "$MANIFEST")
 
 if [[ "${#SKILL_NAMES[@]}" -eq 0 ]]; then
   echo "Bundle manifest did not declare any skills." >&2

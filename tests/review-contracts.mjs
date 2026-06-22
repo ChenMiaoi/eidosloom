@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -123,6 +123,164 @@ function sha256(text) {
   assert.equal(manifest.scope, "full");
   assert.equal(existsSync(join(root, "round-00", "codex-implementation-report.md")), true);
   assert.equal(existsSync(join(root, "paper", "draft.md")), true);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-lifecycle");
+  const baseArgs = [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "owned",
+    "--round",
+    "0",
+    "--phase",
+    "plan",
+    "--scope",
+    "plan",
+    "--no-zip",
+  ];
+  run(python, baseArgs);
+  const root = join(workspace, "work", "eidosloom", "owned");
+  const round = join(root, "round-00");
+  const plan = join(round, "plan.md");
+  const response = join(round, "chatgpt-response.md");
+  const manifestPath = join(round, "manifest.json");
+
+  const manifest = JSON.parse(read(manifestPath));
+  assert.equal(manifest.owner.skill, "eidosloom");
+  assert.equal(manifest.owner.generator, "eidosloom-scaffold");
+  assert.equal(manifest.managed_files.some((item) => item.path === "round-00/plan.md"), true);
+
+  expectFail(python, baseArgs, /Refusing to create over existing Eidosloom round/);
+
+  unlinkSync(response);
+  run(python, [...baseArgs, "--mode", "resume"]);
+  assert.equal(existsSync(response), true, "resume should fill missing generated files");
+
+  const customPlan = "# Plan\n\nUser-owned plan content.\n";
+  writeFileSync(plan, customPlan);
+  run(python, [...baseArgs, "--mode", "resume"]);
+  assert.equal(read(plan), customPlan, "resume must preserve user-authored files");
+  expectFail(python, [...baseArgs, "--force"], /Refusing to overwrite modified generated artifact: round-00\/plan.md/);
+  assert.equal(read(plan), customPlan, "force failure must not overwrite modified generated files");
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-force-clean");
+  const args = [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "clean",
+    "--round",
+    "0",
+    "--phase",
+    "plan",
+    "--scope",
+    "plan",
+    "--no-zip",
+  ];
+  run(python, args);
+  const root = join(workspace, "work", "eidosloom", "clean");
+  const unrelated = join(root, "notes.md");
+  writeFileSync(unrelated, "user notes\n");
+  run(python, [...args, "--force"]);
+  assert.equal(read(unrelated), "user notes\n", "force must preserve unrelated files");
+  assert.equal(existsSync(join(root, "round-00", "codex-implementation-report.md")), false);
+  assert.equal(existsSync(join(root, "paper", "draft.md")), false);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-resume-missing");
+  expectFail(python, [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "missing",
+    "--round",
+    "0",
+    "--mode",
+    "resume",
+    "--scope",
+    "plan",
+    "--no-zip",
+  ], /Cannot resume without an owned Eidosloom manifest/);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-foreign-owner");
+  const args = [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "foreign",
+    "--round",
+    "0",
+    "--scope",
+    "plan",
+    "--no-zip",
+  ];
+  run(python, args);
+  const manifestPath = join(workspace, "work", "eidosloom", "foreign", "round-00", "manifest.json");
+  const manifest = JSON.parse(read(manifestPath));
+  manifest.owner.skill = "other-skill";
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  expectFail(python, [...args, "--mode", "resume"], /not owned by eidosloom-scaffold/);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-scope-mismatch");
+  const args = [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "scope",
+    "--round",
+    "0",
+    "--scope",
+    "plan",
+    "--no-zip",
+  ];
+  run(python, args);
+  expectFail(python, [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "scope",
+    "--round",
+    "0",
+    "--mode",
+    "resume",
+    "--scope",
+    "full",
+    "--no-zip",
+  ], /scope mismatch/);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-unowned-nonempty");
+  const root = join(workspace, "work", "eidosloom", "unsafe");
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, "notes.md"), "pre-existing user file\n");
+  expectFail(python, [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "unsafe",
+    "--round",
+    "0",
+    "--scope",
+    "plan",
+    "--no-zip",
+  ], /non-empty unowned Eidosloom workspace/);
 }
 
 {

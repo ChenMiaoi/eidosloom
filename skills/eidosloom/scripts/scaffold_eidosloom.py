@@ -34,6 +34,11 @@ def sha256_text(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def write_text_lf(path: Path, content: str) -> None:
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(content)
+
+
 def fail(message: str) -> None:
     raise SystemExit(message)
 
@@ -57,7 +62,7 @@ def write_artifact(artifact: Artifact, overwrite: bool) -> str:
     artifact.path.parent.mkdir(parents=True, exist_ok=True)
     if artifact.path.exists() and not overwrite:
         return "preserved"
-    artifact.path.write_text(artifact.content, encoding="utf-8")
+    write_text_lf(artifact.path, artifact.content)
     return "updated" if overwrite else "created"
 
 
@@ -279,7 +284,7 @@ def main() -> int:
 
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     if existing_manifest is None or args.force:
-        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        write_text_lf(manifest_path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
     actions: list[str] = []
     for artifact in artifacts:

@@ -1,6 +1,6 @@
 {
   "schema": "eidosloom-bundle-manifest.v1",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "runtime_skill": "eidosloom",
   "skills": [
     {

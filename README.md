@@ -62,18 +62,18 @@ The main skill includes `scripts/scaffold_eidosloom.py`, which can create a roun
 
 ## One-Line Install
 
-Prefer versioned installs. The examples below use the `v0.2.1` tag.
+Prefer versioned installs. The examples below use the `v0.2.2` tag.
 
 macOS/Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.1/installers/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.2/installers/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.1/installers/install.ps1 | iex
+irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.2/installers/install.ps1 | iex
 ```
 
 To test a branch or fork, override repo name or ref:

@@ -1,7 +1,7 @@
 param(
   [string]$RepoOwner = $(if ($env:EIDOSLOOM_OWNER) { $env:EIDOSLOOM_OWNER } else { "ChenMiaoi" }),
   [string]$RepoName = $(if ($env:EIDOSLOOM_REPO) { $env:EIDOSLOOM_REPO } else { "eidosloom" }),
-  [string]$Ref = $(if ($env:EIDOSLOOM_REF) { $env:EIDOSLOOM_REF } else { "v0.2.1" }),
+  [string]$Ref = $(if ($env:EIDOSLOOM_REF) { $env:EIDOSLOOM_REF } else { "v0.2.2" }),
   [string]$CodexHome = $(if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" })
 )
 

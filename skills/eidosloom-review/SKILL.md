@@ -57,9 +57,12 @@ For prompt templates by target, read `references/review-templates.md`.
 
 2. Build a review packet.
    - Include caller, target, review depth, review mode, requested UI mode, user objective, constraints, artifacts, evidence, test/build results, open questions, and caller rubric when provided.
+   - Include capture metadata: observed UI label, UI selection status, and UI selection verification.
+   - For `ui_mode=require-pro`, do not submit an ordinary review packet until a visible Pro/extended option has been selected and represented as machine-readable metadata. If the helper is run before verification, it must produce `needs-user-decision` rather than an ordinary review gate.
    - Omit hidden system/developer/tool instructions and unnecessary private content.
    - Before sending sensitive data to ChatGPT web, ask permission and say exactly what would be sent to `chatgpt.com`.
    - Optional helper: run `scripts/build_review_packet.py --target <target> --level <depth> --review-mode <mode> --ui-mode <ui_mode>`.
+   - After selecting a required Pro UI mode, pass `--observed-ui-label <label> --ui-selection-status selected --ui-selection-verified true`.
 
 3. Send through ChatGPT web.
    - Use Chrome automation when available and follow the `chrome:control-chrome` skill before controlling Chrome.
@@ -68,6 +71,7 @@ For prompt templates by target, read `references/review-templates.md`.
    - If `ui_mode=prefer-pro`, choose a visible Pro/extended option if present; otherwise continue and report that UI selection was not verified.
    - If `ui_mode=require-pro`, choose a visible Pro/extended option if present; if unavailable or unverified, stop with `needs-user-decision`.
    - Record the exact observed UI label, for example `Pro 扩展`, only as capture metadata.
+   - If the packet was created before `require-pro` was verified, rebuild or update it with the observed label, selected status, and verified flag before submission.
    - Do not inspect cookies, local storage, passwords, session stores, or account internals.
 
 4. Capture and normalize the response.

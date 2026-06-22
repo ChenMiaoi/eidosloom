@@ -13,6 +13,8 @@ Review depth: {review_depth}
 Review mode: {review_mode}
 Requested UI mode: {ui_mode}
 Observed UI label: {observed_ui_label}
+UI selection status: {ui_selection_status}
+UI selection verified: {ui_selection_verified}
 
 Review instructions:
 {review_instructions}

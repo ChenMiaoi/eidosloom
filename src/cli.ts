@@ -43,6 +43,18 @@ type ReviewSelection = {
   warnings: string[];
 };
 
+type OptionKind = "boolean" | "string";
+
+type ParsedOptions = Record<string, string | boolean>;
+
+type UiSelectionStatus = "not-attempted" | "unavailable" | "selected";
+
+type CaptureMetadata = {
+  observedUiLabel: string;
+  uiSelectionStatus: UiSelectionStatus;
+  uiSelectionVerified: boolean;
+};
+
 function usage(): string {
   return [
     "eidosloom <command>",
@@ -57,11 +69,14 @@ function usage(): string {
     "Review packet options:",
     "  --workspace <path>       Target workspace root (default: current directory)",
     "  --project <name>         Project name/slug (default: workspace folder name)",
-    "  --round <number>         Eidosloom round number (default: 0)",
+    "  --round <number>         Review round number (default: 0)",
     "  --target <target>        plan|implementation|roadmap|paper|prompt-skill|architecture|custom",
     "  --level <depth>          quick|standard|deep, or a depth alias",
     "  --review-mode <mode>     balanced|adversarial|committee",
     "  --ui-mode <mode>         auto|prefer-pro|require-pro",
+    "  --observed-ui-label <s>  Visible ChatGPT UI label observed before review",
+    "  --ui-selection-status <s> not-attempted|unavailable|selected",
+    "  --ui-selection-verified <true|false>",
     "  --caller <name>          Calling skill/workflow name",
     "  --rubric <text>          Caller-provided rubric for custom reviews",
     "  --title <title>          Packet title",
@@ -183,8 +198,26 @@ function printReviewLevels(): void {
   }
 }
 
-function parseOptions(args: string[]): Record<string, string | boolean> {
-  const options: Record<string, string | boolean> = {};
+const reviewPacketOptionSchema: Record<string, OptionKind> = {
+  workspace: "string",
+  project: "string",
+  round: "string",
+  target: "string",
+  level: "string",
+  "review-mode": "string",
+  "ui-mode": "string",
+  "observed-ui-label": "string",
+  "ui-selection-status": "string",
+  "ui-selection-verified": "string",
+  caller: "string",
+  rubric: "string",
+  title: "string",
+  out: "string",
+  force: "boolean",
+};
+
+function parseOptions(args: string[], schema: Record<string, OptionKind>): ParsedOptions {
+  const options: ParsedOptions = {};
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -193,10 +226,25 @@ function parseOptions(args: string[]): Record<string, string | boolean> {
     }
 
     const key = arg.slice(2);
-    const next = args[index + 1];
-    if (!next || next.startsWith("--")) {
+    if (!key) {
+      throw new Error("Unexpected empty option name");
+    }
+    const kind = schema[key];
+    if (!kind) {
+      throw new Error(`Unknown option: --${key}`);
+    }
+    if (Object.hasOwn(options, key)) {
+      throw new Error(`Duplicate option: --${key}`);
+    }
+
+    if (kind === "boolean") {
       options[key] = true;
       continue;
+    }
+
+    const next = args[index + 1];
+    if (!next || next.startsWith("--")) {
+      throw new Error(`Missing value for --${key}`);
     }
 
     options[key] = next;
@@ -206,9 +254,27 @@ function parseOptions(args: string[]): Record<string, string | boolean> {
   return options;
 }
 
-function stringOption(options: Record<string, string | boolean>, key: string, fallback: string): string {
+function stringOption(options: ParsedOptions, key: string, fallback: string): string {
   const value = options[key];
   return typeof value === "string" ? value : fallback;
+}
+
+function booleanStringOption(options: ParsedOptions, key: string, fallback: boolean): boolean {
+  const value = options[key];
+  if (value === undefined) {
+    return fallback;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`Expected true or false for --${key}`);
+  }
+  const normalized = canonicalKey(value);
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+  throw new Error(`Expected true or false for --${key}: ${value}`);
 }
 
 function canonicalKey(value: string): string {
@@ -249,7 +315,7 @@ function selectReviewPolicy(policy: ReviewPolicy, levelValue: string, modeValue:
   const legacy = policy.legacyLevelMappings[levelKey];
   if (legacy) {
     depth = legacy.depth;
-    if (modeValue === "balanced") {
+    if (canonicalKey(modeValue) === "balanced") {
       mode = legacy.mode;
     }
     warnings.push(legacy.message);
@@ -265,6 +331,34 @@ function slugify(value: string): string {
   return slug || "project";
 }
 
+function parseRound(value: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`Invalid round number: ${value}`);
+  }
+  return Number.parseInt(value, 10);
+}
+
+function normalizeUiSelectionStatus(value: string): UiSelectionStatus {
+  const key = canonicalKey(value);
+  if (key === "not-attempted" || key === "unavailable" || key === "selected") {
+    return key;
+  }
+  throw new Error(`Unknown UI selection status: ${value}`);
+}
+
+function validateCapture(capture: CaptureMetadata): void {
+  if (capture.uiSelectionVerified && (!capture.observedUiLabel.trim() || capture.uiSelectionStatus !== "selected")) {
+    throw new Error("--ui-selection-verified true requires --observed-ui-label and --ui-selection-status selected");
+  }
+}
+
+function requireProSatisfied(selection: ReviewSelection, capture: CaptureMetadata): boolean {
+  if (selection.uiMode !== "require-pro") {
+    return true;
+  }
+  return Boolean(capture.observedUiLabel.trim() && capture.uiSelectionStatus === "selected" && capture.uiSelectionVerified);
+}
+
 function reviewGate(target: string): string {
   if (target === "paper") {
     return "acceptable, revise, or blocked";
@@ -275,12 +369,16 @@ function reviewGate(target: string): string {
   return "approved, changes-requested, blocked, or needs-user-decision";
 }
 
-function defaultReviewPacketPath(workspace: string, project: string, round: number, target: string): string {
-  const root = join(workspace, "work", "eidosloom", project);
+function defaultReviewPacketPath(workspace: string, project: string, round: number, target: string, caller: string): string {
+  const root = join(workspace, "work", slugify(caller), project);
   if (target === "paper") {
     return join(root, "paper", "review-packet.md");
   }
   return join(root, `round-${String(round).padStart(2, "0")}`, "chatgpt-review-packet.md");
+}
+
+function reviewPacketHeading(caller: string): string {
+  return canonicalKey(caller) === "eidosloom" ? "Eidosloom Review Packet" : "Review Packet";
 }
 
 function buildReviewPacket(
@@ -290,12 +388,15 @@ function buildReviewPacket(
   title: string,
   caller: string,
   rubric: string,
+  capture: CaptureMetadata,
 ): string {
-  const gate = reviewGate(target);
+  const uiGateSatisfied = requireProSatisfied(selection, capture);
+  const gate = uiGateSatisfied ? reviewGate(target) : "needs-user-decision";
+  const canonicalGateOptions = uiGateSatisfied ? "accept, revise, reject, needs-user-decision" : "needs-user-decision";
   const warningsBlock =
     selection.warnings.length > 0 ? `\n## Compatibility Notes\n\n${selection.warnings.map((warning) => `- ${warning}`).join("\n")}\n` : "";
 
-  return `# Eidosloom Review Packet
+  return `# ${reviewPacketHeading(caller)}
 
 ## Metadata
 
@@ -305,13 +406,18 @@ function buildReviewPacket(
 - Review depth: ${selection.depth}
 - Review mode: ${selection.mode}
 - Requested UI mode: ${selection.uiMode}
-- Observed UI label:
-- UI selection status: not-attempted
-- UI selection verified: false
+- Observed UI label: ${capture.observedUiLabel}
+- UI selection status: ${capture.uiSelectionStatus}
+- UI selection verified: ${capture.uiSelectionVerified}
+- Require-Pro satisfied: ${uiGateSatisfied}
 - Created at: ${new Date().toISOString()}
 - Requested gate: ${gate}
-- Canonical gate options: accept, revise, reject, needs-user-decision
+- Canonical gate options: ${canonicalGateOptions}
 ${warningsBlock}
+## UI Gate Status
+
+If requested UI mode is \`require-pro\`, an ordinary review gate is valid only when observed UI label is present, UI selection status is \`selected\`, and UI selection verified is \`true\`. Otherwise the canonical gate is \`needs-user-decision\`.
+
 ## Review Instructions
 
 Depth: ${policy.depths[selection.depth].instruction}
@@ -346,7 +452,7 @@ ${rubric}
 
 ## Requested Output
 
-1. Canonical gate decision: accept, revise, reject, or needs-user-decision.
+1. Canonical gate decision: ${canonicalGateOptions}.
 2. Display gate for this target: ${gate}.
 3. Main reason for the decision.
 4. Required fixes before approval or acceptance.
@@ -358,40 +464,46 @@ ${rubric}
 }
 
 async function writeReviewPacket(args: string[]): Promise<void> {
-  const options = parseOptions(args);
+  const options = parseOptions(args, reviewPacketOptionSchema);
   const policy = loadReviewPolicy();
   const workspace = resolve(stringOption(options, "workspace", process.cwd()));
   const project = slugify(stringOption(options, "project", basename(workspace)));
-  const round = Number.parseInt(stringOption(options, "round", "0"), 10);
+  const round = parseRound(stringOption(options, "round", "0"));
   const target = stringOption(options, "target", "implementation");
   const levelValue = stringOption(options, "level", "standard");
   const modeValue = stringOption(options, "review-mode", "balanced");
   const uiModeValue = stringOption(options, "ui-mode", "auto");
   const title = stringOption(options, "title", "Untitled review");
-  const caller = stringOption(options, "caller", "eidosloom");
+  const caller = stringOption(options, "caller", "eidosloom").trim() || "eidosloom";
   const rubric = stringOption(options, "rubric", "");
+  const capture: CaptureMetadata = {
+    observedUiLabel: stringOption(options, "observed-ui-label", ""),
+    uiSelectionStatus: normalizeUiSelectionStatus(stringOption(options, "ui-selection-status", "not-attempted")),
+    uiSelectionVerified: booleanStringOption(options, "ui-selection-verified", false),
+  };
   const force = options.force === true;
 
-  if (!Number.isInteger(round) || round < 0) {
-    throw new Error(`Invalid round number: ${String(options.round)}`);
-  }
   if (!policy.targets.includes(target)) {
     throw new Error(`Unknown review target: ${target}`);
   }
+  validateCapture(capture);
 
   const selection = selectReviewPolicy(policy, levelValue, modeValue, uiModeValue);
-  const out = resolve(stringOption(options, "out", defaultReviewPacketPath(workspace, project, round, target)));
+  const out = resolve(stringOption(options, "out", defaultReviewPacketPath(workspace, project, round, target, caller)));
   if (existsSync(out) && !force) {
     throw new Error(`Refusing to overwrite existing packet: ${out}`);
   }
 
   await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, buildReviewPacket(policy, target, selection, title, caller, rubric), "utf8");
+  await writeFile(out, buildReviewPacket(policy, target, selection, title, caller, rubric, capture), "utf8");
   console.log(`Wrote review packet: ${out}`);
   console.log(`Target: ${target}`);
   console.log(`Depth: ${selection.depth}`);
   console.log(`Review mode: ${selection.mode}`);
   console.log(`UI mode: ${selection.uiMode}`);
+  console.log(`Observed UI label: ${capture.observedUiLabel || "(none)"}`);
+  console.log(`UI selection status: ${capture.uiSelectionStatus}`);
+  console.log(`UI selection verified: ${capture.uiSelectionVerified}`);
   for (const warning of selection.warnings) {
     console.warn(`Warning: ${warning}`);
   }

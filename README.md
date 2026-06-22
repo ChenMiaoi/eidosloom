@@ -50,7 +50,7 @@ By default, workflow artifacts are written in the target workspace under:
 work/eidosloom/<project-slug>/
 ```
 
-The main skill includes `scripts/scaffold_eidosloom.py`, which can create a round directory, manifest, reusable Markdown files, and a zip package for handoff or ChatGPT review. The review skill includes `scripts/build_review_packet.py`, which can create review packets with a selected level.
+The main skill includes `scripts/scaffold_eidosloom.py`, which can create a round directory, manifest, reusable Markdown files, and a zip package for handoff or ChatGPT review. The review skill includes `scripts/build_review_packet.py`, which can create review packets with selected review depth, review mode, and ChatGPT UI mode metadata.
 
 ## One-Line Install
 
@@ -105,7 +105,10 @@ eidosloom review-levels
 eidosloom review-packet --target implementation --level deep --review-mode balanced --round 1
 eidosloom review-packet --target paper --level deep --review-mode committee --ui-mode prefer-pro --title "Final paper review"
 eidosloom review-packet --target custom --caller humanizer --level deep --review-mode adversarial --rubric "Preserve facts and reduce AI-like phrasing."
+eidosloom review-packet --target custom --caller humanizer --level deep --review-mode committee --ui-mode require-pro --observed-ui-label Pro --ui-selection-status selected --ui-selection-verified true
 ```
+
+When `--ui-mode require-pro` is used without verified UI metadata, the generated packet is gated as `needs-user-decision`. Verify the visible ChatGPT UI mode first, then pass the observed label and selected/verified metadata before submitting an ordinary review request.
 
 ## What Gets Installed
 

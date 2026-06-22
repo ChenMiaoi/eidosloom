@@ -1,0 +1,70 @@
+name: Release
+
+"on":
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Use npm with trusted publishing support
+        run: npm install -g npm@latest
+
+      - name: Verify tag matches package version
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: node dist/cli.js doctor
+      - run: node dist/cli.js review-levels
+      - run: node dist/cli.js review-packet --workspace "${{ runner.temp }}/eidosloom-cli" --project smoke --target custom --level deep --review-mode committee --ui-mode require-pro --observed-ui-label Pro --ui-selection-status selected --ui-selection-verified true --caller humanizer --rubric "Preserve facts." --force
+      - run: python skills/eidosloom/scripts/scaffold_eidosloom.py --workspace "${{ runner.temp }}/eidosloom-plan" --project smoke --round 0 --phase plan --scope plan --no-zip
+      - run: python skills/eidosloom/scripts/scaffold_eidosloom.py --workspace "${{ runner.temp }}/eidosloom-skill" --project smoke --round 0 --phase review --force
+      - run: python skills/eidosloom-review/scripts/build_review_packet.py --workspace "${{ runner.temp }}/eidosloom-review" --project smoke --target custom --level deep --review-mode adversarial --ui-mode require-pro --observed-ui-label Pro --ui-selection-status selected --ui-selection-verified true --caller humanizer --force
+      - run: python skills/eidosloom-review/scripts/validate_review_contract.py request skills/eidosloom-review/references/fixtures/humanizer-request.json
+      - run: python skills/eidosloom-review/scripts/validate_review_contract.py result skills/eidosloom-review/references/fixtures/humanizer-result.json
+
+      - name: Pack npm package
+        id: pack
+        run: |
+          npm pack --json > pack.json
+          PACKAGE_FILE="$(node -e "const fs = require('node:fs'); const pack = JSON.parse(fs.readFileSync('pack.json', 'utf8')); console.log(pack[0].filename);")"
+          echo "package_file=$PACKAGE_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        run: npm publish --access public
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "${{ steps.pack.outputs.package_file }}" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Release $GITHUB_REF_NAME"

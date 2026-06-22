@@ -1,0 +1,65 @@
+{
+  "schema": "eidosloom-review-policy.v1",
+  "depths": {
+    "quick": {
+      "aliases": ["fast", "low", "scan", "smoke", "快速", "简短"],
+      "instruction": "Fast triage. Focus on blockers, obvious missing evidence, and the next single action. Avoid broad rewrites."
+    },
+    "standard": {
+      "aliases": ["normal", "medium", "default", "普通", "标准"],
+      "instruction": "Balanced depth. Check correctness, scope, tests, required fixes, optional improvements, and next actions."
+    },
+    "deep": {
+      "aliases": ["high", "rigorous", "thorough", "深入", "深度"],
+      "instruction": "Rigorous depth. Audit evidence, edge cases, assumptions, failure modes, and test gaps. Tie concerns to artifacts or missing evidence."
+    }
+  },
+  "modes": {
+    "balanced": {
+      "aliases": ["normal", "default", "practical", "平衡", "普通"],
+      "instruction": "Use a practical reviewer stance and prioritize actionable findings."
+    },
+    "adversarial": {
+      "aliases": ["strict", "critic", "red-team", "reviewer-2", "挑剔", "严格", "挑毛病"],
+      "instruction": "Use a skeptical reviewer stance. Make the strongest case against approval, separating blockers, serious concerns, and speculative objections."
+    },
+    "committee": {
+      "aliases": ["max", "maximum", "exhaustive", "panel", "多视角", "最大"],
+      "instruction": "Use a multi-perspective reviewer stance. Provide short views from relevant perspectives, dissenting concerns, a consensus gate, and one unified next-step plan."
+    }
+  },
+  "uiModes": {
+    "auto": {
+      "aliases": ["default", "none", "自动"],
+      "instruction": "Use the currently visible ChatGPT web mode. Record any visible label if observed."
+    },
+    "prefer-pro": {
+      "aliases": ["pro", "pro-extended", "pro-extension", "pro-extend", "pro 扩展", "Pro 扩展", "最高", "扩展"],
+      "instruction": "Prefer a visible Pro or extended ChatGPT web UI mode when available. If unavailable, continue with prompt-level instructions and report that UI selection was not verified."
+    },
+    "require-pro": {
+      "aliases": ["must-pro", "require-pro-extension", "必须pro", "必须 Pro", "必须扩展"],
+      "instruction": "Require a visible Pro or extended ChatGPT web UI mode. If unavailable or unverified, stop with needs-user-decision."
+    }
+  },
+  "targets": ["plan", "implementation", "roadmap", "paper", "prompt-skill", "architecture", "custom"],
+  "legacyLevelMappings": {
+    "adversarial": {
+      "depth": "deep",
+      "mode": "adversarial",
+      "message": "Legacy --level adversarial maps to --level deep --review-mode adversarial."
+    },
+    "committee": {
+      "depth": "deep",
+      "mode": "committee",
+      "message": "Legacy --level committee maps to --level deep --review-mode committee."
+    }
+  },
+  "forbiddenLevelAliases": {
+    "pro": "\"pro\" is a ChatGPT web UI capability, not a review depth. Use --level deep --review-mode committee --ui-mode prefer-pro.",
+    "pro-extended": "\"pro-extended\" is a ChatGPT web UI capability, not a review depth. Use --level deep --review-mode committee --ui-mode prefer-pro.",
+    "pro-extension": "\"pro-extension\" is a ChatGPT web UI capability, not a review depth. Use --level deep --review-mode committee --ui-mode prefer-pro.",
+    "pro-extend": "\"pro-extend\" is a ChatGPT web UI capability, not a review depth. Use --level deep --review-mode committee --ui-mode prefer-pro.",
+    "pro 扩展": "\"Pro 扩展\" is a visible UI label, not a review depth. Use --level deep --review-mode committee --ui-mode prefer-pro."
+  }
+}

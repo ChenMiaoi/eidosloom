@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { cp, mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { homedir, platform } from "node:os";
@@ -8,21 +8,16 @@ import { fileURLToPath } from "node:url";
 
 const skillNames = ["eidosloom", "eidosloom-review"] as const;
 
-const levelInstructions = {
-  quick:
-    "Fast triage. Focus on blockers, obvious missing evidence, and the next single action. Avoid broad rewrites.",
-  standard:
-    "Balanced review. Check correctness, scope, tests, required fixes, optional improvements, and next actions.",
-  deep:
-    "Rigorous review. Audit evidence, edge cases, assumptions, failure modes, and test gaps. Tie concerns to artifacts or missing evidence.",
-  adversarial:
-    "Skeptical review. Make the strongest case against approval, separating fatal blockers, serious concerns, and speculative objections.",
-  committee:
-    "Multi-perspective review. Provide short reviews from relevant perspectives, dissenting concerns, a consensus gate, and one unified next-step plan.",
-} as const;
-
 type SkillName = (typeof skillNames)[number];
-type ReviewLevel = keyof typeof levelInstructions;
+
+type ReviewPolicy = {
+  depths: Record<string, { aliases: string[]; instruction: string }>;
+  modes: Record<string, { aliases: string[]; instruction: string }>;
+  uiModes: Record<string, { aliases: string[]; instruction: string }>;
+  targets: string[];
+  legacyLevelMappings: Record<string, { depth: string; mode: string; message: string }>;
+  forbiddenLevelAliases: Record<string, string>;
+};
 
 type InstallOptions = {
   codexHome?: string;
@@ -41,43 +36,12 @@ type ResolvedPaths = {
   skills: SkillPath[];
 };
 
-const levelAliases: Record<string, ReviewLevel> = {
-  quick: "quick",
-  fast: "quick",
-  low: "quick",
-  scan: "quick",
-  smoke: "quick",
-  "快速": "quick",
-  standard: "standard",
-  normal: "standard",
-  medium: "standard",
-  balanced: "standard",
-  default: "standard",
-  "普通": "standard",
-  "标准": "standard",
-  deep: "deep",
-  high: "deep",
-  rigorous: "deep",
-  thorough: "deep",
-  "深度": "deep",
-  "深入": "deep",
-  adversarial: "adversarial",
-  strict: "adversarial",
-  critic: "adversarial",
-  "red-team": "adversarial",
-  "reviewer-2": "adversarial",
-  "挑剔": "adversarial",
-  "严格": "adversarial",
-  committee: "committee",
-  max: "committee",
-  maximum: "committee",
-  exhaustive: "committee",
-  panel: "committee",
-  "最大": "committee",
-  "多视角": "committee",
+type ReviewSelection = {
+  depth: string;
+  mode: string;
+  uiMode: string;
+  warnings: string[];
 };
-
-const reviewTargets = new Set(["plan", "implementation", "roadmap", "paper", "prompt-skill", "architecture"]);
 
 function usage(): string {
   return [
@@ -87,18 +51,26 @@ function usage(): string {
     "  install        Install bundled Eidosloom skills into ~/.codex/skills",
     "  doctor         Check local installation state",
     "  paths          Print resolved installation paths",
-    "  review-levels  Print available GPT web review levels",
+    "  review-levels  Print available review depth, mode, and UI mode options",
     "  review-packet  Create a review packet Markdown file",
     "",
     "Review packet options:",
-    "  --workspace <path>   Target workspace root (default: current directory)",
-    "  --project <name>     Project name/slug (default: workspace folder name)",
-    "  --round <number>     Eidosloom round number (default: 0)",
-    "  --target <target>    plan|implementation|roadmap|paper|prompt-skill|architecture",
-    "  --level <level>      quick|standard|deep|adversarial|committee, or an alias",
-    "  --title <title>      Packet title",
-    "  --out <path>         Output Markdown path",
-    "  --force              Overwrite an existing packet",
+    "  --workspace <path>       Target workspace root (default: current directory)",
+    "  --project <name>         Project name/slug (default: workspace folder name)",
+    "  --round <number>         Eidosloom round number (default: 0)",
+    "  --target <target>        plan|implementation|roadmap|paper|prompt-skill|architecture|custom",
+    "  --level <depth>          quick|standard|deep, or a depth alias",
+    "  --review-mode <mode>     balanced|adversarial|committee",
+    "  --ui-mode <mode>         auto|prefer-pro|require-pro",
+    "  --caller <name>          Calling skill/workflow name",
+    "  --rubric <text>          Caller-provided rubric for custom reviews",
+    "  --title <title>          Packet title",
+    "  --out <path>             Output Markdown path",
+    "  --force                  Overwrite an existing packet",
+    "",
+    "Legacy:",
+    "  --level adversarial      Maps to --level deep --review-mode adversarial",
+    "  --level committee        Maps to --level deep --review-mode committee",
     "",
     "Environment:",
     "  CODEX_HOME  Override the Codex home directory",
@@ -124,6 +96,11 @@ function resolvePaths(options: InstallOptions = {}): ResolvedPaths {
   }));
 
   return { codexHome, repoRoot, skills };
+}
+
+function loadReviewPolicy(): ReviewPolicy {
+  const policyPath = join(currentRepoRoot(), "skills", "eidosloom-review", "references", "review-policy.json");
+  return JSON.parse(readFileSync(policyPath, "utf8")) as ReviewPolicy;
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -188,8 +165,21 @@ async function printPaths(): Promise<void> {
 }
 
 function printReviewLevels(): void {
-  for (const [level, instructions] of Object.entries(levelInstructions)) {
-    console.log(`${level}: ${instructions}`);
+  const policy = loadReviewPolicy();
+
+  console.log("Depths:");
+  for (const [name, item] of Object.entries(policy.depths)) {
+    console.log(`  ${name}: ${item.instruction}`);
+  }
+
+  console.log("\nReview modes:");
+  for (const [name, item] of Object.entries(policy.modes)) {
+    console.log(`  ${name}: ${item.instruction}`);
+  }
+
+  console.log("\nUI modes:");
+  for (const [name, item] of Object.entries(policy.uiModes)) {
+    console.log(`  ${name}: ${item.instruction}`);
   }
 }
 
@@ -221,13 +211,53 @@ function stringOption(options: Record<string, string | boolean>, key: string, fa
   return typeof value === "string" ? value : fallback;
 }
 
-function normalizeLevel(value: string): ReviewLevel {
-  const key = value.trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
-  const level = levelAliases[key];
-  if (!level) {
-    throw new Error(`Unknown review level: ${value}`);
+function canonicalKey(value: string): string {
+  return value.trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
+}
+
+function normalizeFromSection(
+  section: Record<string, { aliases: string[]; instruction: string }>,
+  value: string,
+  label: string,
+): string {
+  const key = canonicalKey(value);
+  if (Object.hasOwn(section, key)) {
+    return key;
   }
-  return level;
+
+  for (const [name, item] of Object.entries(section)) {
+    if (item.aliases.map(canonicalKey).includes(key)) {
+      return name;
+    }
+  }
+
+  throw new Error(`Unknown ${label}: ${value}`);
+}
+
+function selectReviewPolicy(policy: ReviewPolicy, levelValue: string, modeValue: string, uiModeValue: string): ReviewSelection {
+  const warnings: string[] = [];
+  const levelKey = canonicalKey(levelValue);
+  let depth: string;
+  let mode = normalizeFromSection(policy.modes, modeValue, "review mode");
+  const uiMode = normalizeFromSection(policy.uiModes, uiModeValue, "UI mode");
+
+  const forbidden = Object.entries(policy.forbiddenLevelAliases).find(([alias]) => canonicalKey(alias) === levelKey);
+  if (forbidden) {
+    throw new Error(forbidden[1]);
+  }
+
+  const legacy = policy.legacyLevelMappings[levelKey];
+  if (legacy) {
+    depth = legacy.depth;
+    if (modeValue === "balanced") {
+      mode = legacy.mode;
+    }
+    warnings.push(legacy.message);
+  } else {
+    depth = normalizeFromSection(policy.depths, levelValue, "review depth");
+  }
+
+  return { depth, mode, uiMode, warnings };
 }
 
 function slugify(value: string): string {
@@ -239,8 +269,8 @@ function reviewGate(target: string): string {
   if (target === "paper") {
     return "acceptable, revise, or blocked";
   }
-  if (target === "prompt-skill" || target === "architecture") {
-    return "accept, revise, or reject";
+  if (target === "prompt-skill" || target === "architecture" || target === "custom") {
+    return "accept, revise, reject, or needs-user-decision";
   }
   return "approved, changes-requested, blocked, or needs-user-decision";
 }
@@ -253,23 +283,48 @@ function defaultReviewPacketPath(workspace: string, project: string, round: numb
   return join(root, `round-${String(round).padStart(2, "0")}`, "chatgpt-review-packet.md");
 }
 
-function buildReviewPacket(target: string, level: ReviewLevel, title: string): string {
+function buildReviewPacket(
+  policy: ReviewPolicy,
+  target: string,
+  selection: ReviewSelection,
+  title: string,
+  caller: string,
+  rubric: string,
+): string {
   const gate = reviewGate(target);
+  const warningsBlock =
+    selection.warnings.length > 0 ? `\n## Compatibility Notes\n\n${selection.warnings.map((warning) => `- ${warning}`).join("\n")}\n` : "";
+
   return `# Eidosloom Review Packet
 
 ## Metadata
 
 - Title: ${title}
+- Caller: ${caller}
 - Target: ${target}
-- Review level: ${level}
+- Review depth: ${selection.depth}
+- Review mode: ${selection.mode}
+- Requested UI mode: ${selection.uiMode}
+- Observed UI label:
+- UI selection status: not-attempted
+- UI selection verified: false
 - Created at: ${new Date().toISOString()}
 - Requested gate: ${gate}
+- Canonical gate options: accept, revise, reject, needs-user-decision
+${warningsBlock}
+## Review Instructions
 
-## Level Instructions
+Depth: ${policy.depths[selection.depth].instruction}
 
-${levelInstructions[level]}
+Mode: ${policy.modes[selection.mode].instruction}
+
+UI mode: ${policy.uiModes[selection.uiMode].instruction}
 
 Do not reveal hidden chain-of-thought. Provide concise rationale, evidence, uncertainty, and actionable findings.
+
+## Caller Rubric
+
+${rubric}
 
 ## User Objective
 
@@ -291,43 +346,55 @@ Do not reveal hidden chain-of-thought. Provide concise rationale, evidence, unce
 
 ## Requested Output
 
-1. Gate decision: ${gate}.
-2. Main reason for the decision.
-3. Required fixes before approval or acceptance.
-4. Optional improvements to defer.
-5. Missing evidence, tests, citations, or edge cases.
-6. Concrete next Codex steps.
-7. Roadmap updates if applicable.
+1. Canonical gate decision: accept, revise, reject, or needs-user-decision.
+2. Display gate for this target: ${gate}.
+3. Main reason for the decision.
+4. Required fixes before approval or acceptance.
+5. Optional improvements to defer.
+6. Missing evidence, tests, citations, or edge cases.
+7. Concrete next Codex steps.
+8. Roadmap or caller-specific updates if applicable.
 `;
 }
 
 async function writeReviewPacket(args: string[]): Promise<void> {
   const options = parseOptions(args);
+  const policy = loadReviewPolicy();
   const workspace = resolve(stringOption(options, "workspace", process.cwd()));
   const project = slugify(stringOption(options, "project", basename(workspace)));
   const round = Number.parseInt(stringOption(options, "round", "0"), 10);
   const target = stringOption(options, "target", "implementation");
-  const level = normalizeLevel(stringOption(options, "level", "standard"));
+  const levelValue = stringOption(options, "level", "standard");
+  const modeValue = stringOption(options, "review-mode", "balanced");
+  const uiModeValue = stringOption(options, "ui-mode", "auto");
   const title = stringOption(options, "title", "Untitled review");
+  const caller = stringOption(options, "caller", "eidosloom");
+  const rubric = stringOption(options, "rubric", "");
   const force = options.force === true;
 
   if (!Number.isInteger(round) || round < 0) {
     throw new Error(`Invalid round number: ${String(options.round)}`);
   }
-  if (!reviewTargets.has(target)) {
+  if (!policy.targets.includes(target)) {
     throw new Error(`Unknown review target: ${target}`);
   }
 
+  const selection = selectReviewPolicy(policy, levelValue, modeValue, uiModeValue);
   const out = resolve(stringOption(options, "out", defaultReviewPacketPath(workspace, project, round, target)));
   if (existsSync(out) && !force) {
     throw new Error(`Refusing to overwrite existing packet: ${out}`);
   }
 
   await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, buildReviewPacket(target, level, title), "utf8");
+  await writeFile(out, buildReviewPacket(policy, target, selection, title, caller, rubric), "utf8");
   console.log(`Wrote review packet: ${out}`);
   console.log(`Target: ${target}`);
-  console.log(`Level: ${level}`);
+  console.log(`Depth: ${selection.depth}`);
+  console.log(`Review mode: ${selection.mode}`);
+  console.log(`UI mode: ${selection.uiMode}`);
+  for (const warning of selection.warnings) {
+    console.warn(`Warning: ${warning}`);
+  }
 }
 
 async function main(): Promise<void> {

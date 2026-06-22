@@ -1,4 +1,4 @@
 interface:
   display_name: "Eidosloom"
   short_description: "Run GPT web/Codex research loops"
-  default_prompt: "Use $eidosloom to turn this idea into a plan package, implement it with Codex, delegate review to $eidosloom-review, update the roadmap, and continue toward a paper when approved."
+  default_prompt: "Use $eidosloom to turn this idea into a plan package, implement it with Codex, delegate review to $eidosloom-review with explicit review controls, update the roadmap, and continue toward a paper when approved."

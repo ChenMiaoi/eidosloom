@@ -1,46 +1,74 @@
-# Review Levels
+# Review Policy
 
-Use these levels to control review intensity without asking for hidden chain-of-thought.
+The canonical machine-readable source is `review-policy.json`. This file explains how to apply it.
 
-## Level Map
+## Three Dimensions
 
-| Level | Aliases | Use For | Expected Output |
-| --- | --- | --- | --- |
-| `quick` | fast, low, scan, smoke, 快速, 简短 | Low-risk changes, first sanity checks, time-limited reviews | Gate, top blockers, obvious missing evidence |
-| `standard` | normal, medium, balanced, default, 普通, 标准 | Default implementation or plan review | Gate, prioritized issues, required fixes, next steps |
-| `deep` | high, rigorous, thorough, 深度, 深入 | Research claims, nontrivial code, architecture, paper claims | Gate, evidence audit, edge cases, hidden assumptions, test gaps |
-| `adversarial` | strict, critic, red-team, reviewer 2, 挑剔, 严格 | Pre-submission checks, high-stakes claims, suspected weak work | Rejection risks, strongest objections, required proof/fixes |
-| `committee` | max, exhaustive, panel, 最大, 多视角 | Major milestones or final paper/implementation approval | Separate reviewer perspectives, disagreements, consensus gate |
+| Dimension | Values | Meaning |
+| --- | --- | --- |
+| `review_depth` | `quick`, `standard`, `deep` | How much evidence and edge-case scrutiny to request. |
+| `review_mode` | `balanced`, `adversarial`, `committee` | The review stance or organization. |
+| `ui_mode` | `auto`, `prefer-pro`, `require-pro` | Whether to select a visible ChatGPT web Pro/extended UI mode. |
 
-## Selection Rules
+Do not use `pro` as a review depth. A visible label such as `Pro 扩展`, `Pro Extension`, or `Pro Extend` is a UI observation. Record it as `observed_ui_label`.
 
-1. Use the user's explicit level if provided.
-2. If the user says "GPT Pro", "最高", "最大", "very critical", or asks for final approval, use `committee` unless they request speed.
-3. Use `deep` for paper claims, research evidence, or architecture unless the user asks for quick feedback.
-4. Use `adversarial` when the user asks for rejection risk, reviewer-2 style critique, red-team review, or "挑毛病".
-5. Use `standard` for ordinary loop reviews.
-6. Use `quick` only when the user asks for speed, triage, smoke review, or obvious blockers.
-
-## Prompt Behavior By Level
+## Depths
 
 `quick`:
-- Ask ChatGPT to avoid broad rewrites.
-- Focus on blockers, obvious missing tests, and the next single action.
+- Fast triage.
+- Focus on blockers, obvious missing evidence, and the next single action.
 
 `standard`:
-- Ask for practical correctness, scope, test coverage, and gate decision.
-- Limit optional suggestions so Codex can execute immediately.
+- Default depth.
+- Check correctness, scope, test coverage, required fixes, optional improvements, and next actions.
 
 `deep`:
-- Ask for evidence audit, edge cases, unstated assumptions, and failure modes.
-- Require every major concern to cite the artifact section, code reference, or missing evidence.
+- Rigorous depth.
+- Audit evidence, edge cases, assumptions, failure modes, and test gaps.
+
+## Modes
+
+`balanced`:
+- Practical reviewer stance.
+- Prioritize actionable findings.
 
 `adversarial`:
-- Ask for the strongest case against approval.
-- Require a separation between fatal blockers, serious concerns, and speculative objections.
+- Skeptical stance.
+- Make the strongest case against approval, separating blockers, serious concerns, and speculative objections.
 
 `committee`:
-- Ask for separate short reviews from relevant perspectives.
-- Require a consensus gate, dissenting concerns, and a unified next-step plan.
+- Multi-perspective stance.
+- Provide short views from relevant perspectives, dissenting concerns, a consensus gate, and one next-step plan.
 
-Never request hidden reasoning. Request concise rationale and externally checkable evidence instead.
+## UI Modes
+
+`auto`:
+- Use the currently visible ChatGPT web mode.
+- Record any visible label if observed.
+
+`prefer-pro`:
+- Choose a visible Pro or extended ChatGPT web UI mode if available.
+- If unavailable, continue and report that selection was not verified.
+
+`require-pro`:
+- Choose a visible Pro or extended ChatGPT web UI mode if available.
+- If unavailable or unverified, stop with `needs-user-decision`.
+
+## Compatibility
+
+Legacy commands remain accepted:
+
+- `--level adversarial` maps to `--level deep --review-mode adversarial`.
+- `--level committee` maps to `--level deep --review-mode committee`.
+
+Forbidden as `--level`:
+
+- `pro`
+- `pro-extended`
+- `pro-extension`
+- `pro-extend`
+- `Pro 扩展`
+
+Use `--ui-mode prefer-pro` or `--ui-mode require-pro` instead.
+
+Never request hidden reasoning. Request concise rationale and externally checkable evidence.

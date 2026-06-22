@@ -1,4 +1,4 @@
 interface:
   display_name: "Eidosloom Review"
   short_description: "Review with GPT web at chosen rigor"
-  default_prompt: "Use $eidosloom-review at deep level to review the current implementation and return a gate decision with required fixes."
+  default_prompt: "Use $eidosloom-review with review_depth=deep, review_mode=committee, and ui_mode=prefer-pro to review the current implementation and return a gate decision."

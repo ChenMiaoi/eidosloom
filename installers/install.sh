@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_OWNER="${EIDOSLOOM_OWNER:-ChenMiaoi}"
 REPO_NAME="${EIDOSLOOM_REPO:-eidosloom}"
-REF="${EIDOSLOOM_REF:-main}"
+REF="${EIDOSLOOM_REF:-v0.1.0}"
 SKILL_NAMES=("eidosloom" "eidosloom-review")
 CODEX_HOME="${CODEX_HOME:-"$HOME/.codex"}"
 TMP_DIR="$(mktemp -d)"

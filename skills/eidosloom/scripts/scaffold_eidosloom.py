@@ -44,7 +44,9 @@ def build_manifest(project: str, round_number: int, phase: str) -> dict[str, obj
         "phase": phase,
         "created_at": now,
         "gate_decision": "not-reviewed",
-        "review_level": "standard",
+        "review_depth": "standard",
+        "review_mode": "balanced",
+        "ui_mode": "auto",
         "files": [
             "idea.md",
             "plan.md",
@@ -124,7 +126,7 @@ def main() -> int:
     )
     write_if_missing(
         round_dir / "chatgpt-review-packet.md",
-        "# ChatGPT Review Packet\n\n## Review Settings\n\n- Target: implementation\n- Level: standard\n\n## Review Question\n\nGate decision requested: approved, changes-requested, blocked, or needs-user-decision.\n\n## Evidence\n\n\n",
+        "# ChatGPT Review Packet\n\n## Review Settings\n\n- Target: implementation\n- Review depth: standard\n- Review mode: balanced\n- UI mode: auto\n\n## Review Question\n\nGate decision requested: approved, changes-requested, blocked, or needs-user-decision.\n\n## Evidence\n\n\n",
         args.force,
     )
     write_if_missing(
@@ -139,7 +141,7 @@ def main() -> int:
     )
     write_if_missing(
         paper_dir / "review-packet.md",
-        "# Paper Review Packet\n\n## Review Settings\n\n- Target: paper\n- Level: deep\n\n## Review Goal\n\n\n## Draft Scope\n\n\n",
+        "# Paper Review Packet\n\n## Review Settings\n\n- Target: paper\n- Review depth: deep\n- Review mode: committee\n- UI mode: auto\n\n## Review Goal\n\n\n## Draft Scope\n\n\n",
         args.force,
     )
     write_if_missing(

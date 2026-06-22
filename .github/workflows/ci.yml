@@ -32,8 +32,11 @@ jobs:
       - run: node dist/cli.js doctor
       - run: node dist/cli.js review-levels
       - run: node dist/cli.js review-packet --workspace "${{ runner.temp }}/eidosloom-cli" --project smoke --target custom --level deep --review-mode committee --ui-mode require-pro --observed-ui-label Pro --ui-selection-status selected --ui-selection-verified true --caller humanizer --rubric "Preserve facts." --force
+      - run: python skills/eidosloom/scripts/scaffold_eidosloom.py --workspace "${{ runner.temp }}/eidosloom-plan" --project smoke --round 0 --phase plan --scope plan --no-zip
       - run: python skills/eidosloom/scripts/scaffold_eidosloom.py --workspace "${{ runner.temp }}/eidosloom-skill" --project smoke --round 0 --phase review --force
       - run: python skills/eidosloom-review/scripts/build_review_packet.py --workspace "${{ runner.temp }}/eidosloom-review" --project smoke --target custom --level deep --review-mode adversarial --ui-mode require-pro --observed-ui-label Pro --ui-selection-status selected --ui-selection-verified true --caller humanizer --force
+      - run: python skills/eidosloom-review/scripts/validate_review_contract.py request skills/eidosloom-review/references/fixtures/humanizer-request.json
+      - run: python skills/eidosloom-review/scripts/validate_review_contract.py result skills/eidosloom-review/references/fixtures/humanizer-result.json
       - run: npm pack --dry-run
 
       - name: Check shell installer syntax

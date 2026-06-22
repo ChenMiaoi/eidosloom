@@ -44,7 +44,7 @@ Choose the target from the request or artifact:
 - `architecture`: design options, tradeoffs, migration, failure modes.
 - `custom`: caller-defined artifact with a caller-provided rubric.
 
-For prompt templates by target, read `references/review-templates.md`.
+For prompt templates by target, read `references/review-templates.md`. For calls from another skill, read `references/caller-contract.md` and validate request/result JSON with `scripts/validate_review_contract.py` when a machine-readable contract is available.
 
 ## Workflow
 
@@ -99,6 +99,8 @@ Humanizer generates or rewrites text
 ```
 
 Use `target=prompt-skill` to review the Humanizer skill itself. Use `target=custom` to review Humanizer output.
+
+For production-style reuse, require the caller to provide the request envelope described in `references/caller-contract.md`. The review module returns findings and a gate; the caller applies or rejects edits. Do not mutate caller-owned source text or output files from this skill.
 
 ## Output Standard
 

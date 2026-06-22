@@ -179,6 +179,12 @@ Please return:
 Caller:
 {caller}
 
+Caller contract request:
+{caller_contract_request}
+
+Expected result contract:
+{caller_contract_result}
+
 Caller-provided rubric:
 {rubric}
 

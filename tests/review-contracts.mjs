@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const cli = join(repoRoot, "dist", "cli.js");
 const pyBuilder = join(repoRoot, "skills", "eidosloom-review", "scripts", "build_review_packet.py");
+const pyContractValidator = join(repoRoot, "skills", "eidosloom-review", "scripts", "validate_review_contract.py");
+const scaffold = join(repoRoot, "skills", "eidosloom", "scripts", "scaffold_eidosloom.py");
 const python = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
 
 function tempWorkspace(name) {
@@ -45,6 +48,81 @@ function read(path) {
 
 function normalizePacket(text) {
   return text.replace(/\r\n/g, "\n").replace(/- Created at: .+/g, "- Created at: <timestamp>");
+}
+
+function sha256(text) {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+{
+  const manifest = JSON.parse(read(join(repoRoot, "skills", "eidosloom", "references", "bundle-manifest.json")));
+  const names = manifest.skills.map((skill) => skill.name);
+  assert.deepEqual(names, ["eidosloom", "eidosloom-plan", "eidosloom-review"]);
+  for (const name of names) {
+    assert.equal(existsSync(join(repoRoot, "skills", name, "SKILL.md")), true, `${name} SKILL.md should exist`);
+  }
+
+  const paths = JSON.parse(run("node", [cli, "paths"]).stdout);
+  assert.deepEqual(paths.skills.map((skill) => skill.name), names);
+}
+
+{
+  const codexHomeRoot = tempWorkspace("eidosloom-install");
+  const codexHome = join(codexHomeRoot, "codex home");
+  run("node", [cli, "install"], {
+    env: {
+      ...process.env,
+      CODEX_HOME: codexHome,
+    },
+  });
+  for (const name of ["eidosloom", "eidosloom-plan", "eidosloom-review"]) {
+    assert.equal(existsSync(join(codexHome, "skills", name, "SKILL.md")), true, `${name} should install`);
+  }
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-plan-scope");
+  run(python, [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "plan-only",
+    "--round",
+    "0",
+    "--phase",
+    "plan",
+    "--scope",
+    "plan",
+    "--no-zip",
+  ]);
+  const root = join(workspace, "work", "eidosloom", "plan-only");
+  const manifest = JSON.parse(read(join(root, "round-00", "manifest.json")));
+  assert.equal(manifest.scope, "plan");
+  assert.equal(existsSync(join(root, "round-00", "plan.md")), true);
+  assert.equal(existsSync(join(root, "round-00", "codex-implementation-report.md")), false);
+  assert.equal(existsSync(join(root, "paper", "draft.md")), false);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-full-scope");
+  run(python, [
+    scaffold,
+    "--workspace",
+    workspace,
+    "--project",
+    "full",
+    "--round",
+    "0",
+    "--phase",
+    "plan",
+    "--no-zip",
+  ]);
+  const root = join(workspace, "work", "eidosloom", "full");
+  const manifest = JSON.parse(read(join(root, "round-00", "manifest.json")));
+  assert.equal(manifest.scope, "full");
+  assert.equal(existsSync(join(root, "round-00", "codex-implementation-report.md")), true);
+  assert.equal(existsSync(join(root, "paper", "draft.md")), true);
 }
 
 {
@@ -272,6 +350,67 @@ expectFail("node", [
     "--workspace",
     tempWorkspace("eidosloom-py-bad"),
   ], /Duplicate option: --workspace/);
+}
+
+{
+  const fixtures = join(repoRoot, "skills", "eidosloom-review", "references", "fixtures");
+  run(python, [pyContractValidator, "request", join(fixtures, "humanizer-request.json")]);
+  run(python, [pyContractValidator, "result", join(fixtures, "humanizer-result.json")]);
+  expectFail(
+    python,
+    [pyContractValidator, "request", join(fixtures, "humanizer-request-missing-invariants.json")],
+    /semantic_invariants/,
+  );
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-contract-hash");
+  const artifactText = "Codex implemented the helper and ran the tests.\n";
+  writeFileSync(join(workspace, "original.md"), artifactText);
+  mkdirSync(join(workspace, "reviews"), { recursive: true });
+  const request = {
+    contract_version: "eidosloom-review-contract.v1",
+    request_id: "hash-smoke",
+    caller_skill: "humanizer",
+    project_id: "style-rewrite",
+    round_id: null,
+    target: "custom",
+    review_depth: "deep",
+    review_mode: "committee",
+    ui_mode: "require-pro",
+    input_artifacts: [
+      {
+        id: "original",
+        path: "original.md",
+        sha256: sha256(artifactText),
+      },
+    ],
+    output_dir: "reviews/hash-smoke",
+    acceptance_checks: ["No new claims"],
+    payload: {
+      kind: "text-rewrite",
+      original_text: artifactText,
+      rewritten_text: "Codex wired up the helper and ran the tests.",
+      target_style: "plain technical prose",
+      semantic_invariants: ["Preserve the helper implementation claim"],
+      forbidden_changes: ["Do not add performance results"],
+      audience: "software engineers",
+      purpose: "make the paragraph less generic",
+      acceptance_checks: ["No new claims"],
+    },
+  };
+  const requestPath = join(workspace, "request.json");
+  writeFileSync(requestPath, `${JSON.stringify(request, null, 2)}\n`);
+  run(python, [pyContractValidator, "request", requestPath, "--workspace", workspace, "--verify-hashes"]);
+
+  request.input_artifacts[0].sha256 = "0".repeat(64);
+  const stalePath = join(workspace, "stale-request.json");
+  writeFileSync(stalePath, `${JSON.stringify(request, null, 2)}\n`);
+  expectFail(
+    python,
+    [pyContractValidator, "request", stalePath, "--workspace", workspace, "--verify-hashes"],
+    /sha256 mismatch/,
+  );
 }
 
 console.log("review contract tests passed");

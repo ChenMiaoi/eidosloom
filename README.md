@@ -16,16 +16,17 @@ idea
 
 The optimization is that every loop has a gate decision and a stable artifact shape. ChatGPT web acts as an outside planner/reviewer; Codex remains responsible for reading the repository, implementing, running checks, rejecting unsupported advice, and keeping evidence attached to the roadmap and paper.
 
-The bundle is split into two skills:
+The bundle is split into modular skills:
 
 - `$eidosloom`: the full idea -> implementation -> roadmap -> paper orchestration workflow.
+- `$eidosloom-plan`: standalone initial planning and round-00 package creation.
 - `$eidosloom-review`: standalone GPT web review with explicit depth, mode, and ChatGPT UI controls.
 
 Repository: `https://github.com/ChenMiaoi/eidosloom`
 
 ## Installed Skills
 
-The installer copies both `eidosloom` and `eidosloom-review`.
+The installer copies every skill declared in `skills/eidosloom/references/bundle-manifest.json`.
 
 `eidosloom` supports:
 
@@ -35,6 +36,13 @@ The installer copies both `eidosloom` and `eidosloom-review`.
 - roadmap rewrite after each review;
 - transition to paper drafting only after approval or explicit user override;
 - paper drafting and ChatGPT web paper review loops.
+
+`eidosloom-plan` supports:
+
+- standalone planning from a raw idea, rough draft, or project note;
+- round-00 plan package creation under `work/eidosloom/<project>/`;
+- explicit `create`, `resume`, and `force` lifecycle semantics;
+- planning-only scaffolds that do not create implementation reports or paper drafts.
 
 `eidosloom-review` supports standalone reviews for plans, implementations, roadmaps, papers, prompts/skills, architecture decisions, and custom caller artifacts. It separates three controls:
 
@@ -50,22 +58,22 @@ By default, workflow artifacts are written in the target workspace under:
 work/eidosloom/<project-slug>/
 ```
 
-The main skill includes `scripts/scaffold_eidosloom.py`, which can create a round directory, manifest, reusable Markdown files, and a zip package for handoff or ChatGPT review. The review skill includes `scripts/build_review_packet.py`, which can create review packets with selected review depth, review mode, and ChatGPT UI mode metadata.
+The main skill includes `scripts/scaffold_eidosloom.py`, which can create a round directory, manifest, reusable Markdown files, and a zip package for handoff or ChatGPT review. Use `--scope plan` for planning-only packages. The review skill includes `scripts/build_review_packet.py`, which can create review packets with selected review depth, review mode, and ChatGPT UI mode metadata. It also includes `scripts/validate_review_contract.py` for Humanizer-style caller request/result contracts.
 
 ## One-Line Install
 
-Prefer versioned installs. The examples below use the `v0.1.2` tag.
+Prefer versioned installs. The examples below use the `v0.2.0` tag.
 
 macOS/Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.1.2/installers/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.0/installers/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.1.2/installers/install.ps1 | iex
+irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.2.0/installers/install.ps1 | iex
 ```
 
 To test a branch or fork, override repo name or ref:
@@ -93,6 +101,7 @@ The local CLI installs the bundled skills into:
 
 ```text
 ~/.codex/skills/eidosloom
+~/.codex/skills/eidosloom-plan
 ~/.codex/skills/eidosloom-review
 ```
 
@@ -102,6 +111,7 @@ Useful local commands:
 
 ```sh
 eidosloom review-levels
+python skills/eidosloom/scripts/scaffold_eidosloom.py --workspace /tmp/eidosloom-plan --project smoke --round 0 --phase plan --scope plan --no-zip
 eidosloom review-packet --target implementation --level deep --review-mode balanced --round 1
 eidosloom review-packet --target paper --level deep --review-mode committee --ui-mode prefer-pro --title "Final paper review"
 eidosloom review-packet --target custom --caller humanizer --level deep --review-mode adversarial --rubric "Preserve facts and reduce AI-like phrasing."
@@ -110,9 +120,16 @@ eidosloom review-packet --target custom --caller humanizer --level deep --review
 
 When `--ui-mode require-pro` is used without verified UI metadata, or with a label that is not in the policy allowlist, the generated packet is gated as `needs-user-decision`. Verify the visible ChatGPT UI mode first, then pass the observed label and selected/verified metadata before submitting an ordinary review request.
 
+For another skill, such as a Humanizer-style rewriting skill, use the caller contract in `skills/eidosloom-review/references/caller-contract.md` and validate request/result JSON:
+
+```sh
+python skills/eidosloom-review/scripts/validate_review_contract.py request skills/eidosloom-review/references/fixtures/humanizer-request.json
+python skills/eidosloom-review/scripts/validate_review_contract.py result skills/eidosloom-review/references/fixtures/humanizer-result.json
+```
+
 ## What Gets Installed
 
-The installer copies `skills/eidosloom` and `skills/eidosloom-review` into the user's Codex skills directory. The bundle:
+The installer copies all manifest-declared skills into the user's Codex skills directory. The bundle:
 
 - opens or claims a Chrome tab for `https://chatgpt.com` through Codex Chrome automation;
 - sends focused planning, review, roadmap, and paper-review packets;
@@ -135,7 +152,7 @@ The installer copies `skills/eidosloom` and `skills/eidosloom-review` into the u
 Remove the installed skill directories:
 
 ```sh
-rm -rf ~/.codex/skills/eidosloom ~/.codex/skills/eidosloom-review
+rm -rf ~/.codex/skills/eidosloom ~/.codex/skills/eidosloom-plan ~/.codex/skills/eidosloom-review
 ```
 
 Installers create timestamped backups when replacing existing skill directories.

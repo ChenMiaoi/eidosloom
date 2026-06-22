@@ -6,9 +6,14 @@ import { basename, dirname, join, resolve } from "node:path";
 import { homedir, platform } from "node:os";
 import { fileURLToPath } from "node:url";
 
-const skillNames = ["eidosloom", "eidosloom-review"] as const;
+type SkillName = string;
 
-type SkillName = (typeof skillNames)[number];
+type BundleManifest = {
+  schema: string;
+  version: string;
+  runtime_skill: string;
+  skills: Array<{ name: string; role: string; description: string }>;
+};
 
 type ReviewPolicy = {
   depths: Record<string, { aliases: string[]; instruction: string }>;
@@ -105,7 +110,8 @@ function currentRepoRoot(): string {
 function resolvePaths(options: InstallOptions = {}): ResolvedPaths {
   const codexHome = resolve(options.codexHome || defaultCodexHome());
   const repoRoot = resolve(options.repoRoot || currentRepoRoot());
-  const skills = skillNames.map((name) => ({
+  const manifest = loadBundleManifest(repoRoot);
+  const skills = manifest.skills.map(({ name }) => ({
     name,
     source: join(repoRoot, "skills", name),
     destination: join(codexHome, "skills", name),
@@ -117,6 +123,19 @@ function resolvePaths(options: InstallOptions = {}): ResolvedPaths {
 function loadReviewPolicy(): ReviewPolicy {
   const policyPath = join(currentRepoRoot(), "skills", "eidosloom-review", "references", "review-policy.json");
   return JSON.parse(readFileSync(policyPath, "utf8")) as ReviewPolicy;
+}
+
+function loadBundleManifest(repoRoot = currentRepoRoot()): BundleManifest {
+  const manifestPath = join(repoRoot, "skills", "eidosloom", "references", "bundle-manifest.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as BundleManifest;
+  if (manifest.schema !== "eidosloom-bundle-manifest.v1") {
+    throw new Error(`Unsupported bundle manifest schema: ${manifest.schema}`);
+  }
+  const names = manifest.skills.map((skill) => skill.name);
+  if (names.length === 0 || new Set(names).size !== names.length) {
+    throw new Error("Bundle manifest must declare unique skills");
+  }
+  return manifest;
 }
 
 async function pathExists(path: string): Promise<boolean> {

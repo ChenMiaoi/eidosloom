@@ -1,0 +1,49 @@
+{
+  "contract_version": "eidosloom-review-contract.v1",
+  "request_id": "humanizer-smoke-001",
+  "caller_skill": "humanizer",
+  "project_id": "style-rewrite",
+  "round_id": null,
+  "target": "custom",
+  "review_depth": "deep",
+  "review_mode": "committee",
+  "ui_mode": "require-pro",
+  "input_artifacts": [
+    {
+      "id": "original",
+      "path": "original.md",
+      "sha256": "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4"
+    }
+  ],
+  "output_dir": "reviews/humanizer-smoke-001",
+  "acceptance_checks": [
+    "No factual claims are added",
+    "Original meaning is preserved"
+  ],
+  "payload": {
+    "kind": "text-rewrite",
+    "original_text": "Codex implemented the helper and ran the tests. The change is ready for review.",
+    "rewritten_text": "Codex wired up the helper and ran the tests. The change is ready for review.",
+    "style_sample": "",
+    "target_style": "plain technical prose",
+    "semantic_invariants": [
+      "Preserve the claim that Codex implemented a helper",
+      "Preserve the claim that tests were run",
+      "Do not claim the change is approved"
+    ],
+    "forbidden_changes": [
+      "Do not add citations",
+      "Do not invent performance results"
+    ],
+    "required_terminology": [
+      "Codex"
+    ],
+    "audience": "software engineers",
+    "purpose": "make the paragraph less generic without changing facts",
+    "acceptance_checks": [
+      "No new claims",
+      "No loss of technical meaning"
+    ],
+    "known_uncertainties": []
+  }
+}

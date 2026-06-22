@@ -35,29 +35,36 @@ def zip_dir(source_dir: Path, zip_path: Path) -> None:
                 archive.write(path, path.relative_to(source_dir.parent))
 
 
-def build_manifest(project: str, round_number: int, phase: str) -> dict[str, object]:
+def build_manifest(project: str, round_number: int, phase: str, scope: str) -> dict[str, object]:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    files = [
+        "idea.md",
+        "plan.md",
+        "../roadmap.md",
+        "../decision-log.md",
+        "chatgpt-consult-packet.md",
+        "chatgpt-response.md",
+    ]
+    if scope == "full":
+        files.extend(
+            [
+                "codex-implementation-report.md",
+                "chatgpt-review-packet.md",
+                "revised-plan.md",
+            ]
+        )
     return {
         "schema": "eidosloom.v1",
         "project": project,
         "round": round_number,
         "phase": phase,
+        "scope": scope,
         "created_at": now,
         "gate_decision": "not-reviewed",
         "review_depth": "standard",
         "review_mode": "balanced",
         "ui_mode": "auto",
-        "files": [
-            "idea.md",
-            "plan.md",
-            "../roadmap.md",
-            "../decision-log.md",
-            "chatgpt-consult-packet.md",
-            "chatgpt-response.md",
-            "codex-implementation-report.md",
-            "chatgpt-review-packet.md",
-            "revised-plan.md",
-        ],
+        "files": files,
     }
 
 
@@ -66,6 +73,12 @@ def main() -> int:
     parser.add_argument("--workspace", default=".", help="Target workspace root.")
     parser.add_argument("--project", default=None, help="Project name or slug.")
     parser.add_argument("--round", type=int, default=0, help="Round number.")
+    parser.add_argument(
+        "--scope",
+        default="full",
+        choices=["full", "plan"],
+        help="Artifact scope. Use plan for planning-only packages.",
+    )
     parser.add_argument(
         "--phase",
         default="plan",
@@ -82,7 +95,7 @@ def main() -> int:
     round_dir = root / f"round-{args.round:02d}"
     paper_dir = root / "paper"
 
-    manifest = build_manifest(project, args.round, args.phase)
+    manifest = build_manifest(project, args.round, args.phase, args.scope)
 
     write_if_missing(
         round_dir / "manifest.json",
@@ -119,36 +132,37 @@ def main() -> int:
         "# ChatGPT Response\n\n## Capture Notes\n\n- Model label visible: unknown\n- Captured at: \n\n## Response\n\n\n",
         args.force,
     )
-    write_if_missing(
-        round_dir / "codex-implementation-report.md",
-        "# Codex Implementation Report\n\n## Summary\n\n\n## Changed Files\n\n- \n\n## Verification\n\n- \n\n## Open Issues\n\n- \n\n",
-        args.force,
-    )
-    write_if_missing(
-        round_dir / "chatgpt-review-packet.md",
-        "# ChatGPT Review Packet\n\n## Review Settings\n\n- Target: implementation\n- Review depth: standard\n- Review mode: balanced\n- UI mode: auto\n\n## Review Question\n\nGate decision requested: approved, changes-requested, blocked, or needs-user-decision.\n\n## Evidence\n\n\n",
-        args.force,
-    )
-    write_if_missing(
-        round_dir / "revised-plan.md",
-        "# Revised Plan\n\n## Gate Decision\n\n\n## Next Steps\n\n1. \n\n",
-        args.force,
-    )
-    write_if_missing(
-        paper_dir / "draft.md",
-        "# Paper Draft\n\n## Title\n\n\n## Abstract\n\n\n",
-        args.force,
-    )
-    write_if_missing(
-        paper_dir / "review-packet.md",
-        "# Paper Review Packet\n\n## Review Settings\n\n- Target: paper\n- Review depth: deep\n- Review mode: committee\n- UI mode: auto\n\n## Review Goal\n\n\n## Draft Scope\n\n\n",
-        args.force,
-    )
-    write_if_missing(
-        paper_dir / "review-notes.md",
-        "# Paper Review Notes\n\n## Gate Decision\n\n\n## Required Fixes\n\n- \n\n",
-        args.force,
-    )
+    if args.scope == "full":
+        write_if_missing(
+            round_dir / "codex-implementation-report.md",
+            "# Codex Implementation Report\n\n## Summary\n\n\n## Changed Files\n\n- \n\n## Verification\n\n- \n\n## Open Issues\n\n- \n\n",
+            args.force,
+        )
+        write_if_missing(
+            round_dir / "chatgpt-review-packet.md",
+            "# ChatGPT Review Packet\n\n## Review Settings\n\n- Target: implementation\n- Review depth: standard\n- Review mode: balanced\n- UI mode: auto\n\n## Review Question\n\nGate decision requested: approved, changes-requested, blocked, or needs-user-decision.\n\n## Evidence\n\n\n",
+            args.force,
+        )
+        write_if_missing(
+            round_dir / "revised-plan.md",
+            "# Revised Plan\n\n## Gate Decision\n\n\n## Next Steps\n\n1. \n\n",
+            args.force,
+        )
+        write_if_missing(
+            paper_dir / "draft.md",
+            "# Paper Draft\n\n## Title\n\n\n## Abstract\n\n\n",
+            args.force,
+        )
+        write_if_missing(
+            paper_dir / "review-packet.md",
+            "# Paper Review Packet\n\n## Review Settings\n\n- Target: paper\n- Review depth: deep\n- Review mode: committee\n- UI mode: auto\n\n## Review Goal\n\n\n## Draft Scope\n\n\n",
+            args.force,
+        )
+        write_if_missing(
+            paper_dir / "review-notes.md",
+            "# Paper Review Notes\n\n## Gate Decision\n\n\n## Required Fixes\n\n- \n\n",
+            args.force,
+        )
 
     zip_path = round_dir.with_suffix(".zip")
     if not args.no_zip:

@@ -1,0 +1,30 @@
+{
+  "contract_version": "eidosloom-review-contract.v1",
+  "request_id": "humanizer-smoke-missing-invariants",
+  "caller_skill": "humanizer",
+  "project_id": "style-rewrite",
+  "round_id": null,
+  "target": "custom",
+  "review_depth": "deep",
+  "review_mode": "committee",
+  "ui_mode": "require-pro",
+  "input_artifacts": [],
+  "output_dir": "reviews/humanizer-smoke-missing-invariants",
+  "acceptance_checks": [
+    "No factual claims are added"
+  ],
+  "payload": {
+    "kind": "text-rewrite",
+    "original_text": "Codex implemented the helper.",
+    "rewritten_text": "Codex wired up the helper.",
+    "target_style": "plain technical prose",
+    "forbidden_changes": [
+      "Do not invent performance results"
+    ],
+    "audience": "software engineers",
+    "purpose": "make the paragraph less generic",
+    "acceptance_checks": [
+      "No new claims"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Eidosloom Plan"
+  short_description: "Create first-round plan packages"
+  default_prompt: "Use $eidosloom-plan to turn this rough idea into a round-00 Eidosloom plan package without starting implementation."

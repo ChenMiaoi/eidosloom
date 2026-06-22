@@ -1,0 +1,22 @@
+{
+  "schema": "eidosloom-bundle-manifest.v1",
+  "version": "0.2.0",
+  "runtime_skill": "eidosloom",
+  "skills": [
+    {
+      "name": "eidosloom",
+      "role": "orchestrator",
+      "description": "Full idea-to-implementation-to-paper workflow orchestration."
+    },
+    {
+      "name": "eidosloom-plan",
+      "role": "planning-entrypoint",
+      "description": "Standalone initial planning and round-00 package creation."
+    },
+    {
+      "name": "eidosloom-review",
+      "role": "review-service",
+      "description": "Standalone GPT web review service with caller contract support."
+    }
+  ]
+}

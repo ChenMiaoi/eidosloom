@@ -42,6 +42,21 @@
       "instruction": "Require a visible Pro or extended ChatGPT web UI mode. If unavailable or unverified, stop with needs-user-decision."
     }
   },
+  "acceptedProUiLabels": [
+    "Pro",
+    "专业",
+    "专业版",
+    "Pro 扩展",
+    "Pro扩展",
+    "专业 扩展",
+    "专业扩展",
+    "Pro Extension",
+    "Pro Extend",
+    "Pro Extended",
+    "Pro-Extension",
+    "Pro-Extend",
+    "Pro-Extended"
+  ],
   "targets": ["plan", "implementation", "roadmap", "paper", "prompt-skill", "architecture", "custom"],
   "legacyLevelMappings": {
     "adversarial": {

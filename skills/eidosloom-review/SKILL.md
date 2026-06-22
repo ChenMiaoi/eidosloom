@@ -19,9 +19,9 @@ Keep these dimensions separate:
 - `review_mode`: `balanced`, `adversarial`, or `committee`.
 - `ui_mode`: `auto`, `prefer-pro`, or `require-pro`.
 
-A visible ChatGPT label such as `Pro 扩展`, `Pro Extension`, or `Pro Extend` is a UI capability observation, not a review depth. Do not treat `pro` as a review level. If the user asks for "Pro", map it to `ui_mode=prefer-pro` unless they require it, then use `ui_mode=require-pro`.
+A visible ChatGPT label such as `Pro`, `专业`, `Pro 扩展`, `Pro Extension`, or `Pro Extend` is a UI capability observation, not a review depth. Do not treat `pro` as a review level. If the user asks for "Pro", map it to `ui_mode=prefer-pro` unless they require it, then use `ui_mode=require-pro`.
 
-For aliases and compatibility mappings, read `references/review-policy.json`. For human-readable guidance, read `references/review-levels.md`.
+For aliases, accepted Pro/extended UI labels, and compatibility mappings, read `references/review-policy.json`. For human-readable guidance, read `references/review-levels.md`.
 
 ## Caller-Neutral Contract
 
@@ -58,7 +58,7 @@ For prompt templates by target, read `references/review-templates.md`.
 2. Build a review packet.
    - Include caller, target, review depth, review mode, requested UI mode, user objective, constraints, artifacts, evidence, test/build results, open questions, and caller rubric when provided.
    - Include capture metadata: observed UI label, UI selection status, and UI selection verification.
-   - For `ui_mode=require-pro`, do not submit an ordinary review packet until a visible Pro/extended option has been selected and represented as machine-readable metadata. If the helper is run before verification, it must produce `needs-user-decision` rather than an ordinary review gate.
+   - For `ui_mode=require-pro`, do not submit an ordinary review packet until a visible Pro/extended option matching `acceptedProUiLabels` in `references/review-policy.json` has been selected and represented as machine-readable metadata. If the helper is run before verification or with an unaccepted label, it must produce `needs-user-decision` rather than an ordinary review gate.
    - Omit hidden system/developer/tool instructions and unnecessary private content.
    - Before sending sensitive data to ChatGPT web, ask permission and say exactly what would be sent to `chatgpt.com`.
    - Optional helper: run `scripts/build_review_packet.py --target <target> --level <depth> --review-mode <mode> --ui-mode <ui_mode>`.
@@ -69,7 +69,7 @@ For prompt templates by target, read `references/review-templates.md`.
    - Open or claim a tab for `https://chatgpt.com`.
    - Start a new chat unless the user explicitly wants to continue an existing one.
    - If `ui_mode=prefer-pro`, choose a visible Pro/extended option if present; otherwise continue and report that UI selection was not verified.
-   - If `ui_mode=require-pro`, choose a visible Pro/extended option if present; if unavailable or unverified, stop with `needs-user-decision`.
+   - If `ui_mode=require-pro`, choose a visible Pro/extended option if present; if unavailable, unverified, or not accepted by `references/review-policy.json`, stop with `needs-user-decision`.
    - Record the exact observed UI label, for example `Pro 扩展`, only as capture metadata.
    - If the packet was created before `require-pro` was verified, rebuild or update it with the observed label, selected status, and verified flag before submission.
    - Do not inspect cookies, local storage, passwords, session stores, or account internals.

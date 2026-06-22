@@ -14,6 +14,7 @@ type ReviewPolicy = {
   depths: Record<string, { aliases: string[]; instruction: string }>;
   modes: Record<string, { aliases: string[]; instruction: string }>;
   uiModes: Record<string, { aliases: string[]; instruction: string }>;
+  acceptedProUiLabels: string[];
   targets: string[];
   legacyLevelMappings: Record<string, { depth: string; mode: string; message: string }>;
   forbiddenLevelAliases: Record<string, string>;
@@ -196,6 +197,11 @@ function printReviewLevels(): void {
   for (const [name, item] of Object.entries(policy.uiModes)) {
     console.log(`  ${name}: ${item.instruction}`);
   }
+
+  console.log("\nAccepted Pro UI labels:");
+  for (const label of policy.acceptedProUiLabels) {
+    console.log(`  ${label}`);
+  }
 }
 
 const reviewPacketOptionSchema: Record<string, OptionKind> = {
@@ -352,11 +358,19 @@ function validateCapture(capture: CaptureMetadata): void {
   }
 }
 
-function requireProSatisfied(selection: ReviewSelection, capture: CaptureMetadata): boolean {
+function proUiLabelAccepted(policy: ReviewPolicy, observedUiLabel: string): boolean {
+  const label = canonicalKey(observedUiLabel);
+  if (!label) {
+    return false;
+  }
+  return policy.acceptedProUiLabels.map(canonicalKey).includes(label);
+}
+
+function requireProSatisfied(policy: ReviewPolicy, selection: ReviewSelection, capture: CaptureMetadata): boolean {
   if (selection.uiMode !== "require-pro") {
     return true;
   }
-  return Boolean(capture.observedUiLabel.trim() && capture.uiSelectionStatus === "selected" && capture.uiSelectionVerified);
+  return Boolean(proUiLabelAccepted(policy, capture.observedUiLabel) && capture.uiSelectionStatus === "selected" && capture.uiSelectionVerified);
 }
 
 function reviewGate(target: string): string {
@@ -390,7 +404,8 @@ function buildReviewPacket(
   rubric: string,
   capture: CaptureMetadata,
 ): string {
-  const uiGateSatisfied = requireProSatisfied(selection, capture);
+  const uiLabelAccepted = proUiLabelAccepted(policy, capture.observedUiLabel);
+  const uiGateSatisfied = requireProSatisfied(policy, selection, capture);
   const gate = uiGateSatisfied ? reviewGate(target) : "needs-user-decision";
   const canonicalGateOptions = uiGateSatisfied ? "accept, revise, reject, needs-user-decision" : "needs-user-decision";
   const warningsBlock =
@@ -407,6 +422,7 @@ function buildReviewPacket(
 - Review mode: ${selection.mode}
 - Requested UI mode: ${selection.uiMode}
 - Observed UI label: ${capture.observedUiLabel}
+- Observed UI label accepted: ${uiLabelAccepted}
 - UI selection status: ${capture.uiSelectionStatus}
 - UI selection verified: ${capture.uiSelectionVerified}
 - Require-Pro satisfied: ${uiGateSatisfied}
@@ -416,7 +432,7 @@ function buildReviewPacket(
 ${warningsBlock}
 ## UI Gate Status
 
-If requested UI mode is \`require-pro\`, an ordinary review gate is valid only when observed UI label is present, UI selection status is \`selected\`, and UI selection verified is \`true\`. Otherwise the canonical gate is \`needs-user-decision\`.
+If requested UI mode is \`require-pro\`, an ordinary review gate is valid only when the observed UI label matches the accepted Pro/extended label allowlist in \`review-policy.json\`, UI selection status is \`selected\`, and UI selection verified is \`true\`. Otherwise the canonical gate is \`needs-user-decision\`.
 
 ## Review Instructions
 

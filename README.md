@@ -42,7 +42,7 @@ The installer copies both `eidosloom` and `eidosloom-review`.
 - `review_mode`: `balanced`, `adversarial`, or `committee`.
 - `ui_mode`: `auto`, `prefer-pro`, or `require-pro`.
 
-Visible ChatGPT web labels such as `Pro 扩展`, `Pro Extension`, or `Pro Extend` are UI capabilities, not review levels. Use `ui_mode=prefer-pro` or `ui_mode=require-pro` instead of treating `pro` as a depth.
+Visible ChatGPT web labels such as `Pro`, `专业`, `Pro 扩展`, `Pro Extension`, or `Pro Extend` are UI capabilities, not review levels. Use `ui_mode=prefer-pro` or `ui_mode=require-pro` instead of treating `pro` as a depth.
 
 By default, workflow artifacts are written in the target workspace under:
 
@@ -54,18 +54,18 @@ The main skill includes `scripts/scaffold_eidosloom.py`, which can create a roun
 
 ## One-Line Install
 
-Prefer versioned installs. The examples below use the `v0.1.1` tag.
+Prefer versioned installs. The examples below use the `v0.1.2` tag.
 
 macOS/Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.1.1/installers/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.1.2/installers/install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.1.1/installers/install.ps1 | iex
+irm https://raw.githubusercontent.com/ChenMiaoi/eidosloom/v0.1.2/installers/install.ps1 | iex
 ```
 
 To test a branch or fork, override repo name or ref:
@@ -108,7 +108,7 @@ eidosloom review-packet --target custom --caller humanizer --level deep --review
 eidosloom review-packet --target custom --caller humanizer --level deep --review-mode committee --ui-mode require-pro --observed-ui-label Pro --ui-selection-status selected --ui-selection-verified true
 ```
 
-When `--ui-mode require-pro` is used without verified UI metadata, the generated packet is gated as `needs-user-decision`. Verify the visible ChatGPT UI mode first, then pass the observed label and selected/verified metadata before submitting an ordinary review request.
+When `--ui-mode require-pro` is used without verified UI metadata, or with a label that is not in the policy allowlist, the generated packet is gated as `needs-user-decision`. Verify the visible ChatGPT UI mode first, then pass the observed label and selected/verified metadata before submitting an ordinary review request.
 
 ## What Gets Installed
 

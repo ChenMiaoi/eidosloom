@@ -10,7 +10,7 @@ The canonical machine-readable source is `review-policy.json`. This file explain
 | `review_mode` | `balanced`, `adversarial`, `committee` | The review stance or organization. |
 | `ui_mode` | `auto`, `prefer-pro`, `require-pro` | Whether to select a visible ChatGPT web Pro/extended UI mode. |
 
-Do not use `pro` as a review depth. A visible label such as `Pro 扩展`, `Pro Extension`, or `Pro Extend` is a UI observation. Record it as `observed_ui_label`.
+Do not use `pro` as a review depth. A visible label such as `Pro`, `专业`, `Pro 扩展`, `Pro Extension`, or `Pro Extend` is a UI observation. Record it as `observed_ui_label`.
 
 ## Depths
 
@@ -52,7 +52,15 @@ Do not use `pro` as a review depth. A visible label such as `Pro 扩展`, `Pro E
 
 `require-pro`:
 - Choose a visible Pro or extended ChatGPT web UI mode if available.
-- If unavailable or unverified, stop with `needs-user-decision`.
+- If unavailable, unverified, or not listed in `acceptedProUiLabels`, stop with `needs-user-decision`.
+
+## Accepted Pro UI Labels
+
+Use `acceptedProUiLabels` from `review-policy.json` as the machine-readable allowlist. `require-pro` is satisfied only when all of these are true:
+
+- The observed label canonicalizes to an allowlisted Pro/extended label.
+- UI selection status is `selected`.
+- UI selection verified is `true`.
 
 ## Compatibility
 

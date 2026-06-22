@@ -83,6 +83,7 @@ function normalizePacket(text) {
   assert.match(packet, /- Caller: humanizer/);
   assert.match(packet, /- Requested UI mode: require-pro/);
   assert.match(packet, /- Observed UI label: Pro/);
+  assert.match(packet, /- Observed UI label accepted: true/);
   assert.match(packet, /- UI selection status: selected/);
   assert.match(packet, /- UI selection verified: true/);
   assert.match(packet, /- Require-Pro satisfied: true/);
@@ -114,7 +115,79 @@ function normalizePacket(text) {
   const packet = read(out);
   assert.match(packet, /- Requested gate: needs-user-decision/);
   assert.match(packet, /- Canonical gate options: needs-user-decision/);
+  assert.match(packet, /- Observed UI label accepted: false/);
   assert.match(packet, /- Require-Pro satisfied: false/);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-wrong-label");
+  const out = join(workspace, "wrong-label.md");
+  run("node", [
+    cli,
+    "review-packet",
+    "--workspace",
+    workspace,
+    "--target",
+    "custom",
+    "--level",
+    "deep",
+    "--review-mode",
+    "committee",
+    "--ui-mode",
+    "require-pro",
+    "--observed-ui-label",
+    "Free",
+    "--ui-selection-status",
+    "selected",
+    "--ui-selection-verified",
+    "true",
+    "--caller",
+    "humanizer",
+    "--out",
+    out,
+    "--force",
+  ]);
+  const packet = read(out);
+  assert.match(packet, /- Observed UI label: Free/);
+  assert.match(packet, /- Observed UI label accepted: false/);
+  assert.match(packet, /- Requested gate: needs-user-decision/);
+  assert.match(packet, /- Canonical gate options: needs-user-decision/);
+  assert.match(packet, /- Require-Pro satisfied: false/);
+}
+
+{
+  const workspace = tempWorkspace("eidosloom-cn-pro-label");
+  const out = join(workspace, "cn-pro-label.md");
+  run("node", [
+    cli,
+    "review-packet",
+    "--workspace",
+    workspace,
+    "--target",
+    "custom",
+    "--level",
+    "deep",
+    "--review-mode",
+    "committee",
+    "--ui-mode",
+    "require-pro",
+    "--observed-ui-label",
+    "专业",
+    "--ui-selection-status",
+    "selected",
+    "--ui-selection-verified",
+    "true",
+    "--caller",
+    "humanizer",
+    "--out",
+    out,
+    "--force",
+  ]);
+  const packet = read(out);
+  assert.match(packet, /- Observed UI label: 专业/);
+  assert.match(packet, /- Observed UI label accepted: true/);
+  assert.match(packet, /- Requested gate: accept, revise, reject, or needs-user-decision/);
+  assert.match(packet, /- Require-Pro satisfied: true/);
 }
 
 expectFail("node", [cli, "review-packet", "--workspace", tempWorkspace("eidosloom-bad"), "--ui-mdoe", "require-pro"], /Unknown option: --ui-mdoe/);

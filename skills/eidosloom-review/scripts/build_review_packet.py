@@ -103,10 +103,23 @@ def review_packet_heading(caller: str) -> str:
     return "Eidosloom Review Packet" if canonical_key(caller) == "eidosloom" else "Review Packet"
 
 
-def require_pro_satisfied(ui_mode: str, observed_ui_label: str, ui_selection_status: str, ui_selection_verified: bool) -> bool:
+def pro_ui_label_accepted(policy: dict[str, Any], observed_ui_label: str) -> bool:
+    label = canonical_key(observed_ui_label)
+    if not label:
+        return False
+    return label in {canonical_key(item) for item in policy.get("acceptedProUiLabels", [])}
+
+
+def require_pro_satisfied(
+    policy: dict[str, Any],
+    ui_mode: str,
+    observed_ui_label: str,
+    ui_selection_status: str,
+    ui_selection_verified: bool,
+) -> bool:
     if ui_mode != "require-pro":
         return True
-    return bool(observed_ui_label.strip() and ui_selection_status == "selected" and ui_selection_verified)
+    return bool(pro_ui_label_accepted(policy, observed_ui_label) and ui_selection_status == "selected" and ui_selection_verified)
 
 
 def build_packet(
@@ -124,7 +137,9 @@ def build_packet(
     warnings: list[str],
 ) -> str:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    ui_gate_satisfied = require_pro_satisfied(ui_mode, observed_ui_label, ui_selection_status, ui_selection_verified)
+    ui_label_accepted = pro_ui_label_accepted(policy, observed_ui_label)
+    ui_gate_satisfied = require_pro_satisfied(policy, ui_mode, observed_ui_label, ui_selection_status, ui_selection_verified)
+    ui_label_accepted_text = str(ui_label_accepted).lower()
     ui_selection_verified_text = str(ui_selection_verified).lower()
     ui_gate_satisfied_text = str(ui_gate_satisfied).lower()
     gate = review_gate(target) if ui_gate_satisfied else "needs-user-decision"
@@ -145,6 +160,7 @@ def build_packet(
 - Review mode: {mode}
 - Requested UI mode: {ui_mode}
 - Observed UI label: {observed_ui_label}
+- Observed UI label accepted: {ui_label_accepted_text}
 - UI selection status: {ui_selection_status}
 - UI selection verified: {ui_selection_verified_text}
 - Require-Pro satisfied: {ui_gate_satisfied_text}
@@ -154,7 +170,7 @@ def build_packet(
 {warning_block}
 ## UI Gate Status
 
-If requested UI mode is `require-pro`, an ordinary review gate is valid only when observed UI label is present, UI selection status is `selected`, and UI selection verified is `true`. Otherwise the canonical gate is `needs-user-decision`.
+If requested UI mode is `require-pro`, an ordinary review gate is valid only when the observed UI label matches the accepted Pro/extended label allowlist in `review-policy.json`, UI selection status is `selected`, and UI selection verified is `true`. Otherwise the canonical gate is `needs-user-decision`.
 
 ## Review Instructions
 

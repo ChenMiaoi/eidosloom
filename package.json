@@ -1,6 +1,6 @@
 {
   "name": "eidosloom",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Install Eidosloom Codex skills for idea-to-paper workflows and configurable GPT web review controls.",
   "type": "module",
   "bin": {
